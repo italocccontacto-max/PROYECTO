@@ -1,3 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ============================================================
+# setup_blockade_phase2_5_close.sh
+#
+# Cierra la Fase 2.5 agregando los 3 tests de frontera para
+# expiresAt en PolicyEvaluatorTest, según lo acordado con ChatGPT:
+#
+#   expiresAt == now        -> ALLOW (política inactiva)
+#   expiresAt == now - 1ms  -> ALLOW (política inactiva)
+#   expiresAt == now + 1ms  -> BLOCK (política todavía activa)
+#
+# IMPORTANTE: este script NO modifica ninguna clase de producción.
+# Se verificó antes de generarlo que PolicyEvaluator.isExpired(),
+# CreateQuickBlockUseCase y StopQuickBlockUseCase ya implementan
+# exactamente la semántica que pide ChatGPT:
+#   - expiresAt == null            -> nunca expira
+#   - !now.isBefore(expiresAt)     -> política inactiva (expiresAt <= now)
+#   - enabled y expiresAt son independientes (StopQuickBlockUseCase
+#     solo toca setEnabled, nunca expiresAt)
+#
+# Por eso el único cambio real es reescribir PolicyEvaluatorTest.kt
+# agregando los 3 tests de frontera. Si al correr los tests algo
+# falla, es señal de que el supuesto de arriba está mal — pega la
+# salida del error, no hay que adivinar un fix.
+# ============================================================
+
+REPO_ROOT="$(pwd)"
+MODULE_DIR="$REPO_ROOT/blockade"
+MAIN_ENGINE_DIR="$MODULE_DIR/src/main/java/com/irrovicas/blockade/domain/engine"
+MAIN_MODEL_DIR="$MODULE_DIR/src/main/java/com/irrovicas/blockade/domain/model"
+TEST_FILE="$MODULE_DIR/src/test/java/com/irrovicas/blockade/domain/engine/PolicyEvaluatorTest.kt"
+
+echo "== Validando precondiciones =="
+
+if [ ! -f "$MODULE_DIR/build.gradle.kts" ]; then
+  echo "ERROR: no se encontró blockade/build.gradle.kts."
+  echo "       Corre este script desde la raíz del repo (PROYECTO/)."
+  exit 1
+fi
+
+if [ ! -f "$TEST_FILE" ]; then
+  echo "ERROR: no se encontró $TEST_FILE"
+  echo "       Este script asume que PolicyEvaluatorTest.kt ya existe (Fase 2)."
+  exit 1
+fi
+
+if ! grep -q "class PolicyEvaluator" "$MAIN_ENGINE_DIR/PolicyEvaluator.kt" 2>/dev/null; then
+  echo "ERROR: no se encontró la clase PolicyEvaluator en $MAIN_ENGINE_DIR/PolicyEvaluator.kt"
+  exit 1
+fi
+
+if ! grep -q "expiresAt: Instant? = null" "$MAIN_MODEL_DIR/BlockadePolicy.kt" 2>/dev/null; then
+  echo "ERROR: BlockadePolicy no tiene el campo 'expiresAt: Instant? = null' esperado."
+  echo "       El modelo cambió respecto a lo asumido — abortando en vez de adivinar."
+  exit 1
+fi
+
+if ! grep -q "private fun isExpired(" "$MAIN_ENGINE_DIR/PolicyEvaluator.kt" 2>/dev/null; then
+  echo "ERROR: PolicyEvaluator no tiene el método isExpired() esperado."
+  exit 1
+fi
+
+echo "OK: build.gradle.kts, PolicyEvaluatorTest.kt, PolicyEvaluator.kt y BlockadePolicy.kt encontrados."
+
+echo "== Reescribiendo PolicyEvaluatorTest.kt (agrega 3 tests de frontera) =="
+
+cat > "$TEST_FILE" << 'KOTLIN_EOF'
 package com.irrovicas.blockade.domain.engine
 
 import com.irrovicas.blockade.domain.model.BlockAction
@@ -440,3 +509,38 @@ class PolicyEvaluatorTest {
         assertIs<EnforcementDecision.Block>(result)
     }
 }
+KOTLIN_EOF
+
+echo "OK: PolicyEvaluatorTest.kt reescrito con 21 tests (18 originales + 3 nuevos de frontera)."
+
+echo ""
+echo "== Corriendo ./gradlew :blockade:test =="
+cd "$REPO_ROOT"
+./gradlew :blockade:test
+
+echo ""
+echo "== Corriendo ./gradlew :blockade:assembleDebug =="
+./gradlew :blockade:assembleDebug
+
+echo ""
+echo "== Estado en git =="
+git add -A
+git status --short
+
+cat << 'MSG'
+
+============================================================
+Fase 2.5 cerrada: expiresAt tiene sus 3 tests de frontera y
+todo el motor + use cases siguen verdes.
+
+Para commitear y subir:
+
+  git commit -m "test(blockade): agrega tests de frontera para expiresAt en PolicyEvaluator"
+  git push origin <tu-rama>
+
+Siguiente paso (Fase 2.6): Room persistence. Todavía no tengo
+las instrucciones concretas (entities, converters, DAO,
+RoomPolicyRepository, plan de migraciones) — mándalas cuando
+las tengas y armo setup_blockade_phase2_6.sh.
+============================================================
+MSG
