@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <application android:theme="@style/Theme.IRROVICAS.Blockade" android:label="@string/app_name" android:allowBackup="false">
+    <application android:name=".BlockadeApplication" android:theme="@style/Theme.IRROVICAS.Blockade" android:label="@string/app_name" android:allowBackup="false">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
