@@ -45,6 +45,7 @@ class PolicyEvaluator {
         val activePolicies = policies.filter { policy ->
             policy.enabled &&
                 !policy.paused &&
+                !isExpired(policy, context.now) &&
                 policyConditionsMatch(policy, context)
         }
 
@@ -70,6 +71,14 @@ class PolicyEvaluator {
             policyIds = matchingPolicies.map { it.id }.toSet(),
             reason = buildReason(matchingPolicies),
         )
+    }
+
+    private fun isExpired(
+        policy: BlockadePolicy,
+        now: Instant,
+    ): Boolean {
+        val expiresAt = policy.expiresAt ?: return false
+        return !now.isBefore(expiresAt)
     }
 
     private fun policyTargetsMatch(
@@ -180,10 +189,6 @@ class PolicyEvaluator {
                 currentTime < condition.endTime
         }
 
-        // La ventana empieza un día y termina al día siguiente.
-        // daysOfWeek se interpreta como el día en que ARRANCA la ventana,
-        // así que la porción posterior a medianoche pertenece al día
-        // anterior al actual.
         val startsToday = currentDay in condition.daysOfWeek &&
             currentTime >= condition.startTime
 

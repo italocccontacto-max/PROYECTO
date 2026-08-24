@@ -1,9 +1,15 @@
 package com.irrovicas.blockade.domain.model
 
+import java.time.Instant
+
 /**
  * Política de enforcement normalizada.
  *
  * Puede proceder de un QuickBlock o de un Schedule.
+ *
+ * expiresAt es null para políticas sin vencimiento (Schedule).
+ * Para QuickBlock, representa el instante en que deja de estar activa
+ * sin necesidad de que nadie la deshabilite explícitamente.
  */
 data class BlockadePolicy(
     val id: String,
@@ -16,6 +22,7 @@ data class BlockadePolicy(
     val actions: Set<BlockAction>,
     val conditionMode: ConditionMode = ConditionMode.ALL,
     val strictness: StrictnessLevel = StrictnessLevel.NORMAL,
+    val expiresAt: Instant? = null,
 )
 
 enum class PolicySource {
