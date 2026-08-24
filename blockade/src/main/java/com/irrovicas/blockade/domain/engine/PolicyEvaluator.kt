@@ -172,17 +172,25 @@ class PolicyEvaluator {
         val currentDay = localDateTime.dayOfWeek
         val currentTime = localDateTime.toLocalTime()
 
-        if (currentDay !in condition.daysOfWeek) {
-            return false
+        val crossesMidnight = condition.startTime > condition.endTime
+
+        if (!crossesMidnight) {
+            return currentDay in condition.daysOfWeek &&
+                currentTime >= condition.startTime &&
+                currentTime < condition.endTime
         }
 
-        return if (condition.startTime <= condition.endTime) {
-            currentTime >= condition.startTime &&
-                currentTime < condition.endTime
-        } else {
-            currentTime >= condition.startTime ||
-                currentTime < condition.endTime
-        }
+        // La ventana empieza un día y termina al día siguiente.
+        // daysOfWeek se interpreta como el día en que ARRANCA la ventana,
+        // así que la porción posterior a medianoche pertenece al día
+        // anterior al actual.
+        val startsToday = currentDay in condition.daysOfWeek &&
+            currentTime >= condition.startTime
+
+        val continuesFromYesterday = currentDay.minus(1) in condition.daysOfWeek &&
+            currentTime < condition.endTime
+
+        return startsToday || continuesFromYesterday
     }
 
     private fun usageLimitReached(
