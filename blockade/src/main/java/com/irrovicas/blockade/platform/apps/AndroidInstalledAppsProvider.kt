@@ -33,9 +33,8 @@ class AndroidInstalledAppsProvider(
 
                 val label =
                     resolveInfo.loadLabel(packageManager)
-                        ?.toString()
-                        ?.trim()
-                        .orEmpty()
+                        .toString()
+                        .trim()
 
                 if (label.isBlank()) {
                     return@mapNotNull null
