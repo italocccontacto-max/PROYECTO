@@ -11,6 +11,8 @@ import com.irrovicas.blockade.domain.usecase.ObservePoliciesUseCase
 import com.irrovicas.blockade.domain.usecase.StopQuickBlockUseCase
 import com.irrovicas.blockade.platform.apps.AndroidInstalledAppsProvider
 import com.irrovicas.blockade.platform.apps.InstalledAppsProvider
+import com.irrovicas.blockade.platform.foreground.AndroidForegroundAppProvider
+import com.irrovicas.blockade.platform.foreground.ForegroundAppProvider
 
 class AppContainer(
     context: Context,
@@ -41,4 +43,7 @@ class AppContainer(
 
     val installedAppsProvider: InstalledAppsProvider =
         AndroidInstalledAppsProvider(context)
+
+    val foregroundAppProvider: ForegroundAppProvider =
+        AndroidForegroundAppProvider(context)
 }
